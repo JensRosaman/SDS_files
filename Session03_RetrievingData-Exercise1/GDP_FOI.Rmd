@@ -81,7 +81,7 @@ Filter out countries with fewer than 5 million internet users (as reported in th
 
 ```{r selectCountries}
 # Your code here
-df$internetUsers <- df$SP.POP.TOTL * df$IT.NET.USER.ZS
+df$internetUsers <- df$SP.POP.TOTL * df$IT.NET.USER.ZS / 100
 df <- df[df$internetUsers >= 5000000, ]
 df <- filter_out(df,internetUsers <5000000)
 head(df)
@@ -134,7 +134,26 @@ Merge the WDI and google trends data frames, using the name of the country. (Hin
 "merge" or "inner_join")
 ```{r MergeData}
 merged_data <- merge(df, trends, by.x = "country", by.y = "Land")
+
+# -- Claude --
+cat("WDI rådata:", nrow(df), "rader,", ncol(df), "kolumner\n")
+cat("Trends rådata:", nrow(trends), "rader,", ncol(trends), "kolumner\n")
+cat("Trends utan NA i FOI:", sum(!is.na(trends$FOI)), "\n")
+nrow(trends) + nrow(df)
 head(merged_data)
+cat("After the old merge method:", nrow(merged_data), "rader,", ncol(merged_data), "kolumner\n")
+
+# --/> claude --- There is a large diffrence in collumns so some are dropped due to name missmatch, below is pasted fix from claude
+library(countrycode)
+
+trends$iso2c <- countrycode(trends$Land, "country.name", "iso2c",
+                            custom_match = c("Kosovo" = "XK", "Türkiye" = "TR"))
+
+merged_data <- merge(df, trends, by = "iso2c") 
+cat("After the new merge method:", nrow(merged_data), "rader,", ncol(merged_data), "kolumner\n") # <- can be concluded that the issue lies with the old merge method
+
+nrow(merged_data)
+anti_join(df, trends, by = "iso2c")$country   # länder som tappades
 ```
 
 # 4. Testing the correlation between GDP and FOI
@@ -177,8 +196,7 @@ plot(merged_data$NY.GDP.PCAP.PP.KD, merged_data$shuffFOI,
 ```
 
 Answer: 
-The main diffrence can be seen in the pearson coefficent as it is now partly random. Worth noting however is that it still lies very close to 0. The plot is still very similar to the old plot which coincides with the two values not being correlated. 
-# 5. If you want to do more
+The main diffrence can be seen in the pearson coefficent as it is now  random and thus lies very close to 0, and is substationally diffrent from the test results which strengthens the result that the two are correlated.
 
 - What result do you get if you use other years? What if you choose one of the earliest years in Google trends?
 - How do results change if you use a threshold other than 5 million Internet users?
